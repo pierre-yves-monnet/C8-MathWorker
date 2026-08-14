@@ -1,0 +1,9 @@
+camunda:
+  client:
+    mode: self-managed
+    grpc-address: ${ZEEBE_GRPC_ADDRESS:http://localhost:26500}
+    rest-address: ${ZEEBE_REST_ADDRESS:http://localhost:8080}
+
+logging:
+  level:
+    org.camunda.worker.mathwoker: INFO
