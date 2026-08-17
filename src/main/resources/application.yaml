@@ -6,4 +6,4 @@ camunda:
 
 logging:
   level:
-    org.camunda.worker.mathwoker: INFO
+    org.camunda.worker.mathworker: INFO

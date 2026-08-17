@@ -22,7 +22,7 @@ Each worker reads two integer process variables, `a` and `b`, and writes a singl
 ## Project layout
 
 ```
-src/main/java/org/camunda/worker/mathwoker/
+src/main/java/org/camunda/worker/mathworker/
 ├── MathWorkerApplication.java     # @SpringBootApplication entry point
 └── worker/
     ├── AdditionWorker.java        # @JobWorker(type = "addition")
@@ -57,22 +57,37 @@ rather than a transient failure.
 mvn -f "C:\dev\intellij\consulting\c8-MathWorker\pom.xml" clean package
 ```
 
-This produces an executable Spring Boot jar at `target/mathWorker.jar`.
+This produces **two** artifacts under `target/`:
+
+| Artifact | Contents | Use it when |
+|---|---|---|
+| `mathWorker.jar` (~8 KB) | Only this project's own classes — no `BOOT-INF`, no merged dependencies | A host runtime dynamically loads worker jars (e.g. Cherry) and needs a plain `ZipFile`/`URLClassLoader`-readable jar with `org.camunda.worker.mathworker.*` classes at the root, and supplies Spring Boot/Camunda client itself |
+| `mathWorker-with-dependencies.jar` (~39 MB) | Everything merged in: Spring Boot, the Camunda client, every dependency | Running the app standalone with one `java -jar` and nothing else |
+| `target/lib/*.jar` | Every dependency, as individual untouched jars | Needed alongside the thin `mathWorker.jar` if you want to run *that* one standalone (its manifest `Class-Path` points here) |
 
 ## Run
+
+**Standalone, single file** — simplest option, everything is bundled:
+
+```bash
+java -jar "C:\dev\intellij\consulting\c8-MathWorker\target\mathWorker-with-dependencies.jar"
+```
+
+**Thin jar** — keep `target/lib/` next to `mathWorker.jar` (both produced by `mvn package`):
 
 ```bash
 java -jar "C:\dev\intellij\consulting\c8-MathWorker\target\mathWorker.jar"
 ```
 
-The application connects to `http://localhost:26500` (gRPC) and `http://localhost:8080` (REST) by
-default, in `self-managed` mode with no authentication — see `src/main/resources/application.yaml`.
-Override with environment variables if your local cluster uses different addresses:
+Either way, the application connects to `http://localhost:26500` (gRPC) and `http://localhost:8080`
+(REST) by default, in `self-managed` mode with no authentication — see
+`src/main/resources/application.yaml`. Override with environment variables if your local cluster
+uses different addresses:
 
 ```bash
 set ZEEBE_GRPC_ADDRESS=http://localhost:26500
 set ZEEBE_REST_ADDRESS=http://localhost:8080
-java -jar target\mathWorker.jar
+java -jar target\mathWorker-with-dependencies.jar
 ```
 
 The application logs each worker registration on startup and keeps running until interrupted

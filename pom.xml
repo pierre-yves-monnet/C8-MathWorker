@@ -11,7 +11,7 @@
     <relativePath/>
   </parent>
 
-  <groupId>org.camunda.worker.mathwoker</groupId>
+  <groupId>org.camunda.worker.mathworker</groupId>
   <artifactId>mathWorker</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
@@ -44,17 +44,104 @@
   <build>
     <finalName>mathWorker</finalName>
     <plugins>
+      <!-- Plain jar: only this project's own classes, no dependencies merged in. -->
       <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
         <configuration>
-          <mainClass>org.camunda.worker.mathwoker.MathWorkerApplication</mainClass>
+          <archive>
+            <manifest>
+              <mainClass>org.camunda.worker.mathworker.MathWorkerApplication</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
         </configuration>
+      </plugin>
+
+      <!-- Dependencies as individual jars in target/lib, for the manifest Class-Path above
+           and for running the app standalone with `java -jar`. Not needed when a host
+           runtime (e.g. Cherry) supplies these on its own classpath. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
         <executions>
           <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
             <goals>
-              <goal>repackage</goal>
+              <goal>copy-dependencies</goal>
             </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Second, additional artifact: a self-contained über-jar (Spring Boot + Camunda client +
+           every dependency merged in) for running standalone with a single `java -jar` and no
+           lib/ folder. Attached alongside the plain mathWorker.jar above, not replacing it -
+           shadedArtifactAttached keeps the default jar (used by Cherry) untouched. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <version>4.0.7</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <!-- spring-boot-starter-parent's pluginManagement pre-declares its own id="default"
+               execution for this plugin. Without this override, Maven inherits it alongside our
+               own execution below and it independently shades into target/mathWorker.jar,
+               clobbering the plain jar built by maven-jar-plugin. -->
+          <execution>
+            <id>default</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>shade-with-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>with-dependencies</shadedClassifierName>
+              <outputFile>${project.build.directory}/${project.build.finalName}-with-dependencies.jar</outputFile>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/spring.handlers</resource>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/spring.schemas</resource>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</resource>
+                </transformer>
+                <transformer implementation="org.springframework.boot.maven.PropertiesMergingResourceTransformer">
+                  <resource>META-INF/spring.factories</resource>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>org.camunda.worker.mathworker.MathWorkerApplication</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
           </execution>
         </executions>
       </plugin>

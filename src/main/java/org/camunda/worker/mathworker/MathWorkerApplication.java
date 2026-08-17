@@ -1,4 +1,4 @@
-package org.camunda.worker.mathwoker;
+package org.camunda.worker.mathworker;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
